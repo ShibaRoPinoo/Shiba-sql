@@ -132,8 +132,8 @@ def test_delete_with_where(fake_db, dialect) -> None:
 
 
 def test_count(fake_db, dialect) -> None:
-    fake_db.result = [{"cnt": 42}]
+    fake_db.result = [{"v": 42}]
     n = QueryBuilder(fake_db, "users", dialect=dialect).where("active", True).count()
     assert n == 42
     sql, _, _ = fake_db.last_call
-    assert sql.startswith("SELECT COUNT(*) AS cnt FROM `users`")
+    assert sql.startswith("SELECT COUNT(*) AS v FROM `users`")
