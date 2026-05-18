@@ -107,10 +107,11 @@ class TableBuilder:
 
     def increments(self, column_name: str = "id", primary_key: bool = False) -> TableBuilder:
         validate_identifier(column_name, kind="column")
-        suffix = " PRIMARY KEY" if primary_key else ""
-        self._append_column(
-            f"{self.dialect.quote_identifier(column_name)} INT AUTO_INCREMENT{suffix}"
-        )
+        col_quoted = self.dialect.quote_identifier(column_name)
+        if primary_key:
+            self._append_column(self.dialect.compile_auto_increment_pk(col_quoted))
+        else:
+            self._append_column(f"{col_quoted} INT AUTO_INCREMENT")
         return self
 
     def integer(self, column_name: str, length: int | None = None) -> TableBuilder:

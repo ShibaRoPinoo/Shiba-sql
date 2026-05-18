@@ -500,12 +500,14 @@ class QueryBuilder:
         data: dict[str, Any],
         *,
         update: list[str] | None = None,
+        on: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """INSERT con resolución de conflicto.
 
-        En MySQL se emite ``ON DUPLICATE KEY UPDATE``. El parámetro
-        ``update`` indica qué columnas pisar (por defecto todas excepto
-        las que sean clave). El dialecto adapta la cláusula.
+        :param data: columnas → valores.
+        :param update: columnas a pisar en conflicto (default todas).
+        :param on: columnas del conflicto. Requerido por Postgres,
+            opcional en MySQL (lo detecta por la PK).
         """
         if not data:
             raise error_codes.MISSING_REQUIRED_DATA.build("upsert(): dict vacío.")
@@ -515,7 +517,9 @@ class QueryBuilder:
         update_cols = update if update is not None else list(data.keys())
         for col in update_cols:
             validate_identifier(col, kind="column")
-        update_sql = self.dialect.compile_upsert_update(update_cols)
+        for col in on or []:
+            validate_identifier(col, kind="column")
+        update_sql = self.dialect.compile_upsert_update(update_cols, on)
         table = self.dialect.quote_identifier(self.table_name)
         query = (
             f"INSERT INTO {table} ({cols_sql}) VALUES ({placeholders}) {update_sql}"
