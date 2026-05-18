@@ -32,7 +32,7 @@ Uso
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from shiba.errors import (
     ConnectionError,
@@ -64,7 +64,7 @@ class ErrorCode:
         msg = message or self.default_message
         return self.exception_class(msg, code=self, **kwargs)
 
-    def raise_(self, message: str | None = None, **kwargs: Any) -> None:
+    def raise_(self, message: str | None = None, **kwargs: Any) -> NoReturn:
         """Lanza la excepción asociada con este código.
 
         Para ``QueryError`` y descendientes acepta ``query=``, ``params=``,
