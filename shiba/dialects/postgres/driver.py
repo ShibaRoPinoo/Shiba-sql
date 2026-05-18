@@ -1,14 +1,4 @@
-"""Wrapper sobre :mod:`pymysql` con manejo de errores Shiba.
-
-Diseño
-------
-* No comparte cursor entre operaciones — cada ``execute`` abre el suyo.
-* Las transacciones se gestionan con ``Database.transaction()`` como
-  context manager; fuera de una transacción cada operación auto-commit.
-* Cualquier ``pymysql`` exception se traduce a un
-  :class:`~shiba.errors.ShibaError` con su :class:`ErrorCode`.
-* Nada de ``print`` — sólo ``logging``.
-"""
+"""Wrapper sobre :mod:`psycopg` (v3) con la interfaz Shiba ``Database``."""
 from __future__ import annotations
 
 import logging
@@ -16,22 +6,34 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
-import pymysql
-import pymysql.cursors
-
 from shiba import error_codes
-from shiba.dialects.mysql.quoting import quote_identifier
+from shiba.dialects.postgres.quoting import quote_identifier
 from shiba.error_codes import from_driver_exception
-from shiba.errors import QueryError
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-logger = logging.getLogger("shiba.mysql")
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:  # pragma: no cover - dep opcional
+    psycopg = None  # type: ignore[assignment]
+    dict_row = None  # type: ignore[assignment]
+
+
+def _require_psycopg() -> None:
+    if psycopg is None:
+        raise ImportError(
+            "El dialecto Postgres requiere `psycopg[binary]`. "
+            "Instala: pip install 'shiba_mysql[postgres]' o psycopg[binary]"
+        )
+
+
+logger = logging.getLogger("shiba.postgres")
 
 
 class Database:
-    """Conexión MySQL con API estable de Shiba."""
+    """Conexión Postgres con la misma API que :class:`shiba.Database` de MySQL."""
 
     def __init__(
         self,
@@ -41,16 +43,15 @@ class Database:
         password: str,
         *,
         database: str | None = None,
-        charset: str = "utf8mb4",
         autoconnect: bool = True,
     ) -> None:
+        _require_psycopg()
         self.host = host
         self.port = port
         self.user = user
         self.password = password
         self.database = database
-        self.charset = charset
-        self._connection: pymysql.connections.Connection | None = None
+        self._connection: Any = None
         self._in_transaction: bool = False
         if autoconnect:
             self.connect()
@@ -60,34 +61,27 @@ class Database:
     # ------------------------------------------------------------------
 
     def connect(self) -> None:
-        """Abre la conexión. Idempotente."""
-        if self._connection is not None and self._connection.open:
+        if self._connection is not None and not self._connection.closed:
             return
         try:
-            self._connection = pymysql.connect(
+            self._connection = psycopg.connect(
                 host=self.host,
                 port=self.port,
                 user=self.user,
                 password=self.password,
-                database=self.database,
-                charset=self.charset,
-                cursorclass=pymysql.cursors.DictCursor,
+                dbname=self.database,
                 autocommit=True,
+                row_factory=dict_row,
             )
-        except pymysql.err.OperationalError as exc:
+        except psycopg.OperationalError as exc:
             code = from_driver_exception(exc)
             raise code.build(
                 f"No se pudo conectar a {self.host}:{self.port}: {exc}",
                 details={"host": self.host, "port": self.port},
             ) from exc
-        except Exception as exc:  # pragma: no cover - defensivo
-            raise error_codes.UNKNOWN_ERROR.build(
-                f"Error inesperado al conectar: {exc}",
-            ) from exc
 
     def close(self) -> None:
-        """Cierra la conexión si está abierta."""
-        if self._connection is not None and self._connection.open:
+        if self._connection is not None and not self._connection.closed:
             self._connection.close()
         self._connection = None
         self._in_transaction = False
@@ -104,15 +98,11 @@ class Database:
     ) -> None:
         self.close()
 
-    # ------------------------------------------------------------------
-    # Acceso interno seguro a la conexión
-    # ------------------------------------------------------------------
-
     @property
-    def _conn(self) -> pymysql.connections.Connection:
-        if self._connection is None or not self._connection.open:
+    def _conn(self) -> Any:
+        if self._connection is None or self._connection.closed:
             raise error_codes.CONNECTION_NOT_OPEN.build(
-                "La conexión no está abierta. ¿Llamaste a close() ya?"
+                "La conexión Postgres no está abierta."
             )
         return self._connection
 
@@ -127,13 +117,9 @@ class Database:
         *,
         many: bool = False,
     ) -> list[dict[str, Any]]:
-        """Ejecuta ``query`` y devuelve filas (vacío si no hay rowset).
-
-        Hace commit automático salvo que haya una transacción activa.
-        """
         if not query or not isinstance(query, str):
             raise error_codes.EMPTY_QUERY.build(
-                "Se intentó ejecutar una query vacía o no string.",
+                "Se intentó ejecutar una query vacía.",
                 query=str(query),
             )
         conn = self._conn
@@ -147,12 +133,12 @@ class Database:
                     cursor.execute(query, params)
                 try:
                     rows: list[dict[str, Any]] = list(cursor.fetchall())
-                except pymysql.err.Error:
+                except psycopg.ProgrammingError:
                     rows = []
             if not self._in_transaction:
                 conn.commit()
             return rows
-        except pymysql.err.IntegrityError as exc:
+        except psycopg.errors.IntegrityError as exc:
             self._rollback_silent()
             code = from_driver_exception(exc)
             raise code.build(
@@ -161,16 +147,15 @@ class Database:
                 params=params,
                 cause=exc,
             ) from exc
-        except pymysql.err.ProgrammingError as exc:
+        except psycopg.errors.SyntaxError as exc:
             self._rollback_silent()
-            code = from_driver_exception(exc)
-            raise code.build(
-                f"Error de SQL: {exc}",
+            raise error_codes.QUERY_SYNTAX_ERROR.build(
+                f"Error de sintaxis: {exc}",
                 query=query,
                 params=params,
                 cause=exc,
             ) from exc
-        except pymysql.err.OperationalError as exc:
+        except psycopg.OperationalError as exc:
             self._rollback_silent()
             code = from_driver_exception(exc)
             raise code.build(
@@ -179,7 +164,7 @@ class Database:
                 params=params,
                 cause=exc,
             ) from exc
-        except pymysql.err.Error as exc:
+        except psycopg.Error as exc:
             self._rollback_silent()
             code = from_driver_exception(exc)
             raise code.build(
@@ -189,7 +174,6 @@ class Database:
                 cause=exc,
             ) from exc
 
-    # Alias retro-compatible con la API v1.x.
     execute_query = execute
 
     def raw(
@@ -199,19 +183,14 @@ class Database:
         *,
         many: bool = False,
     ) -> list[dict[str, Any]]:
-        """Escape hatch para SQL crudo — sin builder.
-
-        El llamador es responsable de pasar **valores siempre como
-        parámetros**, nunca interpolados en ``query``.
-        """
         return self.execute(query, params, many=many)
 
     def _rollback_silent(self) -> None:
-        if self._connection is None or not self._connection.open:
+        if self._connection is None or self._connection.closed:
             return
         try:
             self._connection.rollback()
-        except pymysql.err.Error:  # pragma: no cover - best effort
+        except psycopg.Error:  # pragma: no cover - best effort
             logger.warning("rollback failed", exc_info=True)
 
     # ------------------------------------------------------------------
@@ -220,16 +199,11 @@ class Database:
 
     @contextmanager
     def transaction(self) -> Iterator[Database]:
-        """Bloque transaccional. Commit al salir, rollback en excepción.
-
-        No anidable en esta versión (se reservará para savepoints en
-        Fase 4). Lanza :data:`error_codes.TRANSACTION_ALREADY_ACTIVE`
-        si ya hay una activa.
-        """
         if self._in_transaction:
             raise error_codes.TRANSACTION_ALREADY_ACTIVE.build()
         conn = self._conn
-        conn.begin()
+        # En psycopg3 autocommit=True implica BEGIN explícito para abrir tx.
+        conn.execute("BEGIN")
         self._in_transaction = True
         try:
             yield self
@@ -242,26 +216,23 @@ class Database:
             self._in_transaction = False
 
     # ------------------------------------------------------------------
-    # DDL/DML conveniencia
+    # DDL conveniencia
     # ------------------------------------------------------------------
 
     def create_database(self, name: str) -> Database:
-        """``CREATE DATABASE IF NOT EXISTS`` validando el nombre."""
         try:
-            self.execute(f"CREATE DATABASE IF NOT EXISTS {quote_identifier(name)}")
-        except QueryError as exc:
-            if exc.code is error_codes.INTEGRITY_DUPLICATE_KEY:
-                logger.info("database %s already exists", name)
-            else:
+            self.execute(f"CREATE DATABASE {quote_identifier(name)}")
+        except Exception as exc:  # pragma: no cover - mensajes varían
+            if "already exists" not in str(exc):
                 raise
         self.database = name
         return self
 
     def use_database(self, name: str) -> Database:
-        """``USE <name>`` validando el nombre."""
-        self.execute(f"USE {quote_identifier(name)}")
+        """En Postgres no hay ``USE``. Se cierra y reconecta a la nueva DB."""
+        self.close()
         self.database = name
+        self.connect()
         return self
 
-    # Alias retro-compatible.
     selected_database = use_database

@@ -41,3 +41,25 @@ class Dialect(ABC):
         if offset is not None:
             parts.append(f"OFFSET {int(offset)}")
         return " ".join(parts)
+
+    @abstractmethod
+    def compile_upsert_update(
+        self,
+        update_columns: list[str],
+        conflict_columns: list[str] | None = None,
+    ) -> str:
+        """Cláusula de resolución de conflicto para ``upsert``.
+
+        MySQL → ``ON DUPLICATE KEY UPDATE col = VALUES(col), ...``
+          (``conflict_columns`` se ignora; lo detecta por la PK).
+        Postgres/SQLite → ``ON CONFLICT (col, ...) DO UPDATE SET col = EXCLUDED.col``
+          (``conflict_columns`` obligatorio).
+        """
+
+    def compile_auto_increment_pk(self, column_quoted: str) -> str:
+        """Declaración inline de PK auto-incremental.
+
+        Default MySQL-ish. Postgres lo override con
+        ``GENERATED ALWAYS AS IDENTITY``.
+        """
+        return f"{column_quoted} INT AUTO_INCREMENT PRIMARY KEY"

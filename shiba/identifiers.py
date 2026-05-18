@@ -55,8 +55,8 @@ _ALLOWED_OPERATORS = frozenset(
 
 def validate_operator(op: str) -> str:
     """Acepta el operador o lanza :class:`SchemaError`."""
-    if not isinstance(op, str):  # defensa para callers no tipados
-        error_codes.INVALID_OPERATOR.raise_(  # type: ignore[unreachable]
+    if not isinstance(op, str):  # defensa para callers no tipados  # type: ignore[unreachable]
+        error_codes.INVALID_OPERATOR.raise_(
             f"operador no string: {op!r}",
             details={"value": repr(op)},
         )

@@ -26,11 +26,14 @@ classifiers = [
 dependencies = ["pymysql>=1.1"]
 
 [project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
 dev = [
     "pytest>=8",
     "pytest-cov>=5",
     "ruff>=0.6",
     "mypy>=1.10",
+    "psycopg[binary]>=3.1",
+    "testcontainers[mysql,postgres]>=4.7",
 ]
 
 [project.urls]
@@ -49,7 +52,6 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ANN", "A"]
 ignore = [
     "ANN401",  # permitir Any explícito
     "A004",    # sombreamos ConnectionError a propósito (parte de la API pública)
-    "UP038",   # `isinstance(x, X | Y)` rompe en py3.10 sin from __future__ import
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -68,4 +70,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not integration'"
+markers = [
+    "integration: requiere Docker (MySQL/Postgres reales con Testcontainers)",
+]
