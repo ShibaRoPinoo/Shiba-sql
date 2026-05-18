@@ -49,7 +49,6 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ANN", "A"]
 ignore = [
     "ANN401",  # permitir Any explícito
     "A004",    # sombreamos ConnectionError a propósito (parte de la API pública)
-    "UP038",   # `isinstance(x, X | Y)` rompe en py3.10 sin from __future__ import
 ]
 
 [tool.ruff.lint.per-file-ignores]

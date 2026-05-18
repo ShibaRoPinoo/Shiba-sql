@@ -68,7 +68,7 @@ class TableBuilder:
             return self._amend_last("DEFAULT NULL")
         if isinstance(value, bool):
             return self._amend_last(f"DEFAULT {1 if value else 0}")
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return self._amend_last(f"DEFAULT {value}")
         return self._amend_last("DEFAULT " + _escape_enum_choice(value))
 

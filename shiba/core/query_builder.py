@@ -123,7 +123,7 @@ class QueryBuilder:
 
     def _where_many(self, conditions: list[Any]) -> QueryBuilder:
         for cond in conditions:
-            if not isinstance(cond, (list, tuple)):
+            if not isinstance(cond, list | tuple):
                 raise error_codes.INVALID_QUERY_PARAMS.build(
                     f"cada condición de where() debe ser list/tuple, recibió {type(cond).__name__}."
                 )
@@ -171,7 +171,7 @@ class QueryBuilder:
         for column, op, value in self._where:
             col_sql = self.dialect.quote_identifier(column)
             if op in {"IN", "NOT IN"}:
-                if not isinstance(value, (list, tuple)) or not value:
+                if not isinstance(value, list | tuple) or not value:
                     raise error_codes.INVALID_QUERY_PARAMS.build(
                         f"{op} requiere lista/tupla no vacía."
                     )
