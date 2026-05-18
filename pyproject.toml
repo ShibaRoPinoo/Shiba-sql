@@ -33,6 +33,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "psycopg[binary]>=3.1",
+    "testcontainers[mysql,postgres]>=4.7",
 ]
 
 [project.urls]
@@ -69,4 +70,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not integration'"
+markers = [
+    "integration: requiere Docker (MySQL/Postgres reales con Testcontainers)",
+]
