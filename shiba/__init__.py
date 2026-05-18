@@ -35,6 +35,7 @@ from shiba.errors import (
     SchemaError,
     ShibaError,
 )
+from shiba.orm import Model, fields, set_default_connection
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -109,6 +110,7 @@ __all__ = [
     "Database",
     "IntegrityError",
     "MissingDataError",
+    "Model",
     "MySQLDialect",
     "QueryBuilder",
     "QueryError",
@@ -117,4 +119,6 @@ __all__ = [
     "ShibaError",
     "TableBuilder",
     "error_codes",
+    "fields",
+    "set_default_connection",
 ]
