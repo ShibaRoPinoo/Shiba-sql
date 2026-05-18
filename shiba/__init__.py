@@ -160,6 +160,16 @@ def connect(dsn: str) -> ShibaConnection:
     db = PgDatabase(host, port, user, password, database=database)
     return ShibaConnection(db=db, dialect=PostgresDialect())
 
+    def raw(
+        self,
+        query: str,
+        params: object = None,
+        *,
+        many: bool = False,
+    ) -> list[dict[str, object]]:
+        """Escape hatch — ver :meth:`Database.raw`."""
+        return self.db.raw(query, params, many=many)
+
 
 __all__ = [
     "ConnectionError",

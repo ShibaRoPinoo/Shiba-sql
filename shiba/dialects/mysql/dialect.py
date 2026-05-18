@@ -18,11 +18,7 @@ class MySQLDialect(Dialect):
     def map_type(self, declared: str) -> str:
         return _map_type(declared)
 
-    def compile_upsert_update(
-        self,
-        update_columns: list[str],
-        conflict_columns: list[str] | None = None,
-    ) -> str:
+    def compile_upsert_update(self, update_columns: list[str]) -> str:
         if not update_columns:
             return ""
         parts = [f"{_qi(c)} = VALUES({_qi(c)})" for c in update_columns]
