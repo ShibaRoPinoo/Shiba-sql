@@ -1,20 +1,42 @@
-from shibamysql.database import Database
-from shibamysql.table_builder import TableBuilder
-from shibamysql.query_builder import QueryBuilder
+"""Shim de compatibilidad con la API ``shibamysql`` v1.x.
 
-class ShibaConnection:
+Re-exporta los símbolos públicos desde :mod:`shiba`. Programar contra
+este módulo emite :class:`DeprecationWarning`; migrar a ``import shiba``.
+"""
+from __future__ import annotations
 
-    def __init__(self, host, port, user, password) -> None:
-        self.db = Database(host, port, user, password)
-    
-    def create_database(self, database):
-        return self.db.create_database(database)
-        
-    def use_database(self, database):
-        return self.db.selected_database(database)
-    
-    def create_table(self, table_name):
-        return TableBuilder(self.db, table_name)
-    
-    def table(self, table_name):
-        return QueryBuilder(self.db, table_name)    
+import warnings
+
+from shiba import (
+    ConnectionError,
+    Database,
+    IntegrityError,
+    MissingDataError,
+    QueryBuilder,
+    QueryError,
+    SchemaError,
+    ShibaConnection,
+    ShibaError,
+    TableBuilder,
+    error_codes,
+)
+
+warnings.warn(
+    "`shibamysql` está deprecado desde v2.0; importa desde `shiba` en su lugar.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+__all__ = [
+    "ConnectionError",
+    "Database",
+    "IntegrityError",
+    "MissingDataError",
+    "QueryBuilder",
+    "QueryError",
+    "SchemaError",
+    "ShibaConnection",
+    "ShibaError",
+    "TableBuilder",
+    "error_codes",
+]
