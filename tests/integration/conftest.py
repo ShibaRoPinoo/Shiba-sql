@@ -42,7 +42,7 @@ def postgres_url() -> Iterator[str]:
 def _normalize_to_shiba_dsn(url: str, scheme: str) -> str:
     """``mysql+pymysql://...`` → ``mysql://...`` (Shiba ignora el driver hint)."""
     if "+" in url.split("://", 1)[0]:
-        head, tail = url.split("://", 1)
+        _, tail = url.split("://", 1)
         return f"{scheme}://{tail}"
     return url
 

@@ -220,7 +220,7 @@ def test_json_field_roundtrips(cx, fake_db) -> None:
     Doc(payload={"x": "y"}).save()
     insert_calls = [c for c in fake_db.calls if c[0].startswith("INSERT INTO `docs`")]
     assert insert_calls, "esperaba al menos un INSERT"
-    sql, params, _ = insert_calls[-1]
+    _, params, _ = insert_calls[-1]
     assert params == ('{"x": "y"}',)
 
 
