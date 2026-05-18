@@ -1,4 +1,4 @@
-class MissingDataError(Exception):
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+"""Shim de compatibilidad. El contenido vive ahora en :mod:`shiba.errors`."""
+from shiba.errors import MissingDataError
+
+__all__ = ["MissingDataError"]
