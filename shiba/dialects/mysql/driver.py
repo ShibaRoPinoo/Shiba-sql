@@ -192,6 +192,20 @@ class Database:
     # Alias retro-compatible con la API v1.x.
     execute_query = execute
 
+    def raw(
+        self,
+        query: str,
+        params: Any = None,
+        *,
+        many: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Escape hatch para SQL crudo — sin builder.
+
+        El llamador es responsable de pasar **valores siempre como
+        parámetros**, nunca interpolados en ``query``.
+        """
+        return self.execute(query, params, many=many)
+
     def _rollback_silent(self) -> None:
         if self._connection is None or not self._connection.open:
             return
