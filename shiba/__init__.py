@@ -93,6 +93,16 @@ class ShibaConnection:
         """Context manager transaccional. Ver :meth:`Database.transaction`."""
         return self.db.transaction()
 
+    def raw(
+        self,
+        query: str,
+        params: object = None,
+        *,
+        many: bool = False,
+    ) -> list[dict[str, object]]:
+        """Escape hatch — ver :meth:`Database.raw`."""
+        return self.db.raw(query, params, many=many)
+
 
 __all__ = [
     "ConnectionError",

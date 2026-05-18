@@ -41,3 +41,11 @@ class Dialect(ABC):
         if offset is not None:
             parts.append(f"OFFSET {int(offset)}")
         return " ".join(parts)
+
+    @abstractmethod
+    def compile_upsert_update(self, update_columns: list[str]) -> str:
+        """Cláusula de resolución de conflicto para ``upsert``.
+
+        MySQL → ``ON DUPLICATE KEY UPDATE col = VALUES(col), ...``
+        Postgres/SQLite → ``ON CONFLICT (...) DO UPDATE SET ...``.
+        """
